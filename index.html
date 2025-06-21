@@ -1,75 +1,154 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="az">
 <head>
   <meta charset="UTF-8">
-  <title>🎤 Угадай Кто Говорит</title>
+  <title>Səs Tapmaca Oyunu</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
       padding: 20px;
-      background: #f2f2f2;
+      background: #f1f1f1;
+      color: #222;
     }
+
+    h2 {
+      margin-top: 0;
+    }
+
     .hidden {
       display: none;
     }
-    .section {
-      margin-bottom: 20px;
+
+    .box {
       background: #fff;
       padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    input, button {
+      padding: 8px 12px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 8px;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0077cc;
+      color: white;
+      cursor: pointer;
+      transform: scale(1.05);
+    }
+
+    #scoreBoard td, #scoreBoard th {
+      padding: 5px 10px;
+    }
+
+    #startBtn {
+      background: #28a745;
+      color: white;
+    }
+
+    #startBtn:hover {
+      background: #218838;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      text-align: left;
     }
   </style>
 </head>
 <body>
 
-  <div class="section">
-    <h2>👋 Вход в игру</h2>
-    <label>Введите ваше имя:
-      <input type="text" id="playerName">
-    </label>
-    <button onclick="enterGame()">Войти</button>
+  <div class="box">
+    <h2>🎤 Səs Tapmaca Oyunu</h2>
+    <p>Oyun qaydası: Biri səs yazır. Qalanlar təxmin edir ki, bu kimdir. Doğru təxmin edən xallar qazanır. İlk 5 xal qazanan qalib olur.</p>
   </div>
 
-  <div id="gameSection" class="section hidden">
-    <h2>🎙️ Запись голоса</h2>
-    <button id="recordBtn">Начать запись</button>
-    <button id="playBtn" class="hidden">▶️ Проиграть</button>
-    <button id="guessBtn" class="hidden">➡️ Передать другим</button>
-    <br><br>
-    <strong>Ты: <span id="yourName"></span></strong>
+  <div class="box">
+    <h3>👤 Adını daxil et:</h3>
+    <input type="text" id="playerName" placeholder="Adınız">
+    <button onclick="addPlayer()">Oyuna qoşul</button>
+    <p id="playerCount"></p>
+    <table id="scoreBoard" class="hidden">
+      <thead>
+        <tr><th>Oyunçu</th><th>Xal</th></tr>
+      </thead>
+      <tbody id="scoreBody"></tbody>
+    </table>
+    <button id="startBtn" class="hidden" onclick="startGame()">Oyuna Başla</button>
   </div>
 
-  <div id="guessSection" class="section hidden">
-    <h2>🤔 Кто это сказал?</h2>
-    <button onclick="playGuessAudio()">🔊 Послушать</button><br><br>
-    <label>Твоя догадка:
-      <input type="text" id="guessInput">
-    </label>
-    <button onclick="makeGuess()">Проверить</button>
-    <p id="resultText"></p>
+  <div id="gameBox" class="box hidden">
+    <h3 id="yourNameLabel"></h3>
+    <button id="recordBtn">🎙️ Səsi yaz</button>
+    <button id="playBtn" class="hidden">▶️ Dinlə</button>
+    <button id="sendBtn" class="hidden">➡️ Təxmin etsinlər</button>
+  </div>
+
+  <div id="guessBox" class="box hidden">
+    <h3>Bu səsi kim dedi?</h3>
+    <button onclick="playGuessAudio()">🔊 Dinlə</button><br><br>
+    <input type="text" id="guessInput" placeholder="Kim olduğunu təxmin et">
+    <button onclick="makeGuess()">Göndər</button>
+    <p id="guessResult"></p>
   </div>
 
   <script>
+    let players = [];
+    let currentUser = '';
     let mediaRecorder;
     let audioBlob;
     let audioURL;
-    let realSpeakerName = '';
-    let currentUser = '';
+    let realSpeaker = '';
 
-    function enterGame() {
-      const nameInput = document.getElementById('playerName').value.trim();
-      if (!nameInput) return alert('Введи своё имя!');
-      currentUser = nameInput.toLowerCase();
-      document.getElementById('yourName').innerText = currentUser;
-      document.getElementById('gameSection').classList.remove('hidden');
+    function addPlayer() {
+      const name = document.getElementById('playerName').value.trim();
+      if (!name) return alert('Adını yaz!');
+      if (players.includes(name.toLowerCase())) return alert('Bu ad artıq var!');
+
+      players.push(name.toLowerCase());
+      localStorage.setItem(name.toLowerCase(), '0');
+      updateScoreboard();
+      document.getElementById('playerName').value = '';
     }
 
-    const recordBtn = document.getElementById('recordBtn');
-    const playBtn = document.getElementById('playBtn');
-    const guessBtn = document.getElementById('guessBtn');
+    function updateScoreboard() {
+      const tbody = document.getElementById('scoreBody');
+      tbody.innerHTML = '';
+      players.forEach(name => {
+        const score = localStorage.getItem(name) || '0';
+        const row = `<tr><td>${name}</td><td>${score}</td></tr>`;
+        tbody.innerHTML += row;
+      });
 
-    recordBtn.onclick = async () => {
+      document.getElementById('playerCount').innerText = `Oyunçular: ${players.length}`;
+      document.getElementById('scoreBoard').classList.remove('hidden');
+
+      if (players.length >= 4) {
+        document.getElementById('startBtn').classList.remove('hidden');
+      }
+    }
+
+    function startGame() {
+      const name = prompt('Bu raundda səsi kim yazacaq? (Ad yaz)');
+      if (!players.includes(name.toLowerCase())) return alert('Belə bir oyunçu yoxdur!');
+      currentUser = name.toLowerCase();
+      document.getElementById('yourNameLabel').innerText = `Sən: ${currentUser}`;
+      document.getElementById('gameBox').classList.remove('hidden');
+    }
+
+    document.getElementById('recordBtn').onclick = async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       let chunks = [];
@@ -78,25 +157,25 @@
       mediaRecorder.onstop = () => {
         audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
         audioURL = URL.createObjectURL(audioBlob);
-        playBtn.classList.remove('hidden');
-        guessBtn.classList.remove('hidden');
-        realSpeakerName = currentUser;
+        document.getElementById('playBtn').classList.remove('hidden');
+        document.getElementById('sendBtn').classList.remove('hidden');
+        realSpeaker = currentUser;
       };
 
       mediaRecorder.start();
       setTimeout(() => {
         mediaRecorder.stop();
-        alert('⏹️ Запись завершена!');
-      }, 3000); // 3 сек
+        alert('⏹️ Yazı tamamlandı!');
+      }, 3000);
     };
 
-    playBtn.onclick = () => {
+    document.getElementById('playBtn').onclick = () => {
       const audio = new Audio(audioURL);
       audio.play();
     };
 
-    guessBtn.onclick = () => {
-      document.getElementById('guessSection').classList.remove('hidden');
+    document.getElementById('sendBtn').onclick = () => {
+      document.getElementById('guessBox').classList.remove('hidden');
     };
 
     function playGuessAudio() {
@@ -106,20 +185,19 @@
 
     function makeGuess() {
       const guess = document.getElementById('guessInput').value.trim().toLowerCase();
-      const resultText = document.getElementById('resultText');
-
-      if (guess === realSpeakerName) {
-        let points = parseInt(localStorage.getItem(guess) || '0') + 1;
-        localStorage.setItem(guess, points);
-        resultText.innerText = `✅ Правильно! У ${guess} теперь ${points} балл(ов).`;
-        if (points >= 5) {
-          alert(`🎉 ${guess} победил!`);
+      const result = document.getElementById('guessResult');
+      if (guess === realSpeaker) {
+        let score = parseInt(localStorage.getItem(guess) || '0') + 1;
+        localStorage.setItem(guess, score);
+        updateScoreboard();
+        result.innerText = `✅ Doğrudur! ${guess} - indi ${score} xal.`;
+        if (score >= 5) {
+          alert(`🎉 ${guess} qalib oldu!`);
         }
       } else {
-        resultText.innerText = '❌ Неправильно. Попробуй снова.';
+        result.innerText = '❌ Səhvdir! Təkrar yoxla.';
       }
     }
   </script>
-
 </body>
 </html>
